@@ -21,10 +21,10 @@ cv2.namedWindow('camera', cv2.WINDOW_AUTOSIZE)
 
 
 
-gs_frame = cv2.GaussianBlur(cap, (5, 5), 0)                     # 高斯模糊
+gs_frame = cv2.GaussianBlur(cap, (5, 5), 0)                  
 hsv = cv2.cvtColor(gs_frame, cv2.COLOR_BGR2HSV) 
-             # 转化成HSV图像
-erode_hsv = cv2.erode(hsv, None, iterations=2)   # 腐蚀 粗的变细  
+            
+erode_hsv = cv2.erode(hsv, None, iterations=2)  
               
 inRange_hsv = cv2.inRange(erode_hsv, color_dist[ball_color]['Lower'], color_dist[ball_color]['Upper'])
 
