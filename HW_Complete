@@ -1,0 +1,105 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Jun 21 13:19:33 2020
+
+@author: ken36
+"""
+
+
+import cv2
+import numpy as np
+font = cv2.FONT_HERSHEY_SIMPLEX 
+ball_color = 'red'
+
+color_dist = {'red': {'Lower': np.array([0, 60, 60]), 'Upper': np.array([10, 255, 255])},
+              'blue': {'Lower': np.array([100, 80, 46]), 'Upper': np.array([124, 255, 255])},
+              'green': {'Lower': np.array([35, 43, 35]), 'Upper': np.array([90, 255, 255])},
+              }
+
+
+
+# 读取图片并转至灰度模式
+#imagepath = 'Tomato.jpg'
+#img = cv2.imread(imagepath, 1)
+#cv2.namedWindow('camera', cv2.WINDOW_AUTOSIZE)
+cap = cv2.VideoCapture(1)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+#cv2.namedWindow("Tomato_test",0);
+#cv2.resizeWindow("Tomato_test", 640, 480);
+if (cap.isOpened()):   
+    flag = 1 
+else: 
+    flag = 0 
+num = 0
+if (flag): 
+    while (True): 
+        ret, frame = cap.read()
+        if ret == False:   
+            break 
+        gs_frame = cv2.GaussianBlur(frame, (5, 5), 0)                    
+        hsv = cv2.cvtColor(gs_frame, cv2.COLOR_BGR2HSV) 
+        erode_hsv = cv2.erode(hsv, None, iterations=2)
+        inRange_hsv = cv2.inRange(erode_hsv, color_dist[ball_color]['Lower'], color_dist[ball_color]['Upper'])
+        #cv2.imshow("TEST_1",inRange_hsv)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        ret1, thresh1 = cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
+        #cv2.imshow("TEST__", thresh1)
+        erode_gray = cv2.erode(gray, None, iterations=2)
+        #cv2.imshow("TEST", erode_gray)
+       
+        ret, thresh = cv2.threshold(inRange_hsv, 0, 255, cv2.THRESH_BINARY| cv2.THRESH_OTSU)
+        cv2.imshow("thresh_1", thresh)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5, 5))
+        opening = cv2.morphologyEx(thresh,cv2.MORPH_CLOSE,kernel, iterations = 7)
+        cv2.imshow("open", opening)
+        opening1 = cv2.morphologyEx(opening,cv2.MORPH_OPEN,kernel, iterations = 13)
+        cv2.imshow("open1", opening1)
+        #opening = cv2.morphologyEx(thresh,cv2.MORPH_CLOSE,kernel, iterations = 7)
+        #sure_bg = cv2.morphologyEx(thresh,cv2.MORPH_CLOSE,kernel, iterations = 3)
+        #sure_bg = cv2.dilate(opening1,kernel,iterations=1)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(3, 3))
+        sure_bg1 = cv2.dilate(opening1,kernel,iterations=12)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(7, 7))
+        opening2 = cv2.morphologyEx(sure_bg1,cv2.MORPH_OPEN,kernel, iterations = 10)
+        cv2.imshow("opening2", opening2)
+        cv2.imshow("sure",sure_bg1)
+        dist_transform = cv2.distanceTransform(opening1,cv2.DIST_L2,5)
+        #cv2.imshow("dist", dist_transform)
+        ret, sure_fg = cv2.threshold(dist_transform,0.7*dist_transform.max(),255,2)
+        #cv2.imshow("sure_fg", sure_fg)
+        sure_fg = np.uint8(sure_fg)
+        unknown = cv2.subtract(opening2,sure_fg)
+        #cv2.imshow("unknown", unknown)
+        ret, markers = cv2.connectedComponents(sure_fg)
+        markers = markers+1
+        
+        markers[unknown==255] = 0
+        
+        markers = cv2.watershed(frame,markers)
+        #cv2.imshow("markers", markers)
+        frame[markers == -1] = [255,0,0]
+       
+        image, contours, hierarchy = cv2.findContours(opening2, 2, 1)
+        
+        
+        for cnt in contours:
+            (x2, y2, w2, h2) = cv2.boundingRect(cnt) 
+            
+            hull = cv2.convexHull(cnt)
+            length = len(hull)
+            
+            if length > 5:
+               
+                for i in range(length):
+                    cv2.line(frame, tuple(hull[i][0]), tuple(hull[(i+1)%length][0]), (0,0,255), 2)
+                    cv2.rectangle(frame, (x2, y2), (x2 + w2, y2 + h2), (0, 255, 255), 2)
+                    cv2.putText(frame, "OK", (x2, y2 - 5), font, 0.7, (0, 0, 255), 2) 
+            
+
+        cv2.imshow('Tomato_test', frame)
+        cv2.imwrite("Tomato_TEST_CODE.jpg", frame)
+        if cv2.waitKey(20) & 0xFF == 27: 
+            break
+cv2.waitKey(0)
+cv2.destroyAllWindows()
